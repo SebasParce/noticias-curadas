@@ -1,29 +1,17 @@
-import { getTimezone } from "@/lib/date";
-
-interface HeaderProps {
-  displayDate: string;
-  generatedAt: string;
-  itemCount: number;
-}
-
-export function Header({ displayDate, generatedAt, itemCount }: HeaderProps) {
-  const generatedLabel = new Intl.DateTimeFormat("es-ES", {
-    timeZone: getTimezone(),
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(generatedAt));
-
+// Masthead del sitio: se muestra una sola vez, arriba de todo el scroll.
+// La fecha de cada día vive en DaySection, no acá.
+export function Header() {
   return (
-    <header className="mb-8 border-b border-line pb-6 sm:mb-10 sm:pb-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-ink-soft sm:text-sm">
-        Briefing diario
+    <div className="mb-12 sm:mb-16">
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink-soft sm:text-sm">
+        Briefing
       </p>
-      <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl md:text-5xl">
-        {displayDate}
+      <h1 className="mt-2 font-serif text-2xl leading-tight text-ink sm:text-3xl">
+        Tecnología, economía, política internacional y deportes
       </h1>
-      <p className="mt-3 text-sm text-ink-soft">
-        {itemCount} noticias curadas · actualizado a las {generatedLabel}
+      <p className="mt-2 text-sm text-ink-soft">
+        Curado y sintetizado automáticamente con IA, un día a la vez.
       </p>
-    </header>
+    </div>
   );
 }

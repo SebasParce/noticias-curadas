@@ -1,27 +1,48 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { SOURCES, TOPICS_OF_INTEREST } from "./sources";
-import { GROUP_IDS, SUBCATEGORY_IDS } from "./types";
+import {
+  GROUP_IDS,
+  SUBCATEGORIES_BY_GROUP,
+  type GroupId,
+  type NewsItem,
+} from "./types";
 
 // Modelo de Claude a usar para curar y sintetizar el briefing.
 const MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 8000;
+const MAX_TOKENS = 12000;
 
-const NewsItemSchema = z.object({
-  title: z.string().min(1).max(200),
-  summary: z.string().min(1).max(600),
-  source: z.string().min(1).max(80),
-  url: z.string().url(),
-  group: z.enum(GROUP_IDS),
-  subcategory: z.enum(SUBCATEGORY_IDS),
-});
+const NewsItemSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    summary: z.string().min(1).max(600),
+    source: z.string().min(1).max(80),
+    url: z.string().url(),
+    group: z.enum(GROUP_IDS),
+    subcategory: z.string().min(1).max(40),
+  })
+  .refine(
+    (item) =>
+      (SUBCATEGORIES_BY_GROUP[item.group] as readonly string[]).includes(
+        item.subcategory,
+      ),
+    "subcategory inválida para ese group",
+  );
 
 const BriefingPayloadSchema = z.object({
   executiveSummary: z.array(z.string().min(1).max(400)).min(1).max(6),
   items: z.array(NewsItemSchema),
 });
 
-export type BriefingPayload = z.infer<typeof BriefingPayloadSchema>;
+// El `.refine()` de arriba valida en runtime que `subcategory` sea válida
+// para su `group`, pero zod no puede angostar el tipo de "string" a la unión
+// literal `SubcategoryId` a partir de eso. Como ya lo garantizamos a mano,
+// tipamos `items` con el `NewsItem` "de verdad" (lib/types.ts) en vez del
+// tipo inferido por zod.
+export interface BriefingPayload {
+  executiveSummary: string[];
+  items: NewsItem[];
+}
 
 function uniqueDomains(urls: string[]): string[] {
   const domains = new Set<string>();
@@ -36,8 +57,9 @@ function uniqueDomains(urls: string[]): string[] {
 }
 
 function buildSystemPrompt(): string {
-  const groupList = GROUP_IDS.join(" | ");
-  const subcategoryList = SUBCATEGORY_IDS.join(" | ");
+  const groupSubcategoryLines = (Object.keys(SUBCATEGORIES_BY_GROUP) as GroupId[])
+    .map((group) => `  - ${group}: ${SUBCATEGORIES_BY_GROUP[group].join(" | ")}`)
+    .join("\n");
 
   return `Sos el editor automático de "Briefing", un panel de noticias curadas en español.
 
@@ -46,19 +68,24 @@ Tu trabajo en cada corrida:
 2. Usar web_search, restringido a esos mismos dominios, como apoyo para confirmar datos o encontrar la URL directa de una nota puntual cuando la portada no la deja clara.
 3. Quedarte solo con las noticias relevantes a los temas de interés indicados.
 4. Escribir cada noticia relevante en español (traducila si la fuente está en inglés) como un título corto y una síntesis de 2 a 4 líneas (entre 30 y 70 palabras), con tono informativo y directo, sin clickbait.
-5. Clasificar cada noticia en un grupo (${groupList}) y una subcategoría (${subcategoryList}).
-6. Escribir un resumen ejecutivo de 3 a 4 bullets con lo más importante del día en su conjunto.
+5. Clasificar cada noticia en un grupo y una subcategoría, usando EXCLUSIVAMENTE estas combinaciones válidas (no inventes otras):
+${groupSubcategoryLines}
+6. Escribir un resumen ejecutivo de 3 a 4 bullets con lo más importante del día en su conjunto (puede incluir deportes si hubo algo relevante).
 
 Reglas de clasificación:
 - "Startups" e "Inteligencia artificial" NO son grupos propios: una noticia de startups o IA va dentro de "tecnologia" si el eje es el producto/la tecnología/la innovación, o dentro de "economia" si el eje es financiamiento, valuación, mercado, resultados de negocio o macroeconomía.
-- "actualidad": hechos noticiosos del día o de las últimas 24-48 horas.
-- "tendencias": análisis, patrones o cambios de mediano plazo (no es una noticia puntual de hoy, sino "hacia dónde va" algo).
-- "notas_curiosas": historias curiosas, insólitas, human-interest o llamativas que no encajan como noticia dura pero valen la pena, dentro del grupo que corresponda por tema.
+- "actualidad": hechos noticiosos del día o de las últimas 24-48 horas. Aplica solo a tecnologia/economia/politica.
+- "tendencias": análisis, patrones o cambios de mediano plazo (no es una noticia puntual de hoy, sino "hacia dónde va" algo). Aplica solo a tecnologia/economia/politica.
+- "notas_curiosas": historias curiosas, insólitas, human-interest o llamativas que no encajan como noticia dura pero valen la pena. Aplica solo a tecnologia/economia/politica.
+- El grupo "deportes" es un caso aparte, con sus propias subcategorías y criterio de filtro MUY estricto:
+  - "futbol": SOLO Premier League y LaLiga (España). Incluí resultados, posiciones, fichajes/traspasos y bajas/lesiones relevantes de esos clubes. NO incluyas Champions League, Europa League, selecciones nacionales, Serie A, Bundesliga, Ligue 1 ni ninguna otra liga o país.
+  - "baloncesto": SOLO NBA. Incluí partidos, resultados, fichajes/traspasos y lesiones relevantes. NO incluyas Euroliga, ACB ni otras ligas de básquet.
+  - Si una noticia de deportes no encaja exactamente en esos dos casos, no la incluyas: preferí quedarte corto antes que meter ruido de otras ligas o deportes.
 - Para IGN y 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
 - Si una fuente no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
 - No dupliques la misma noticia si aparece en más de una fuente; quedate con la cobertura más completa y mencioná esa fuente.
 - El campo "url" debe ser la URL de la nota puntual (no la portada) cuando esté disponible; si de verdad no se puede obtener, usá la URL de portada de esa fuente.
-- El campo "source" debe ser exactamente el nombre de fuente que te pasó el usuario (ej. "TechCrunch", "BBC Mundo").
+- El campo "source" debe ser exactamente el nombre de fuente que te pasó el usuario (ej. "TechCrunch", "BBC Mundo", "ESPN").
 
 Formato de salida (muy importante):
 - No agregues comentarios, saludos ni explicaciones fuera del JSON.
@@ -74,14 +101,14 @@ Formato de salida (muy importante):
       "summary": "string en español, 2-4 líneas",
       "source": "string",
       "url": "string (URL válida)",
-      "group": "${groupList}",
-      "subcategory": "${subcategoryList}"
+      "group": "tecnologia | economia | politica | deportes",
+      "subcategory": "ver combinaciones válidas de arriba, según el group"
     }
   ]
 }
 \`\`\`
 
-Apuntá a un total razonable de notas por corrida (aproximadamente entre 12 y 30 en total, según cuánto material relevante haya), priorizando calidad y relevancia por sobre cantidad.`;
+Apuntá a un total razonable de notas por corrida (aproximadamente entre 15 y 35 en total, según cuánto material relevante haya), priorizando calidad y relevancia por sobre cantidad.`;
 }
 
 function buildUserPrompt(nowLabel: string): string {
@@ -145,14 +172,14 @@ export async function generateBriefingPayload(
       {
         type: "web_fetch_20250910",
         name: "web_fetch",
-        max_uses: 20,
+        max_uses: 24,
         allowed_domains: allowedDomains,
         max_content_tokens: 8000,
       },
       {
         type: "web_search_20250305",
         name: "web_search",
-        max_uses: 10,
+        max_uses: 14,
         allowed_domains: allowedDomains,
       },
     ],
@@ -182,5 +209,9 @@ export async function generateBriefingPayload(
     );
   }
 
-  return BriefingPayloadSchema.parse(parsedRaw);
+  const parsed = BriefingPayloadSchema.parse(parsedRaw);
+  return {
+    executiveSummary: parsed.executiveSummary,
+    items: parsed.items as NewsItem[],
+  };
 }

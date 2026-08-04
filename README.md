@@ -2,9 +2,12 @@
 
 Dashboard tipo "morning briefing": un cron diario usa Claude (con `web_fetch` +
 `web_search`) para leer TechCrunch, Xataka, Gizmodo en español, IGN, 3DJuegos,
-BBC, BBC Mundo y Bloomberg Línea, filtrar lo relevante a tecnología/startups/AI,
-economía y política internacional, sintetizarlo en español y clasificarlo. El
-resultado se guarda como un JSON en Vercel Blob y la página pública solo lo lee.
+BBC, BBC Mundo, Bloomberg Línea, Diario AS, Marca y ESPN; filtra lo relevante a
+tecnología/startups/AI, economía, política internacional y deportes (fútbol de
+Premier League/LaLiga y baloncesto NBA); lo sintetiza en español y lo
+clasifica. Cada corrida se guarda como un JSON propio en Vercel Blob (uno por
+día) y la home muestra un scroll con el histórico de los últimos días — nada
+se pisa ni se borra.
 
 ## Stack
 
@@ -23,9 +26,11 @@ app/
   page.tsx             → dashboard público, lee el último briefing guardado
   layout.tsx, globals.css
 components/
-  Header.tsx, ExecutiveSummary.tsx, CategorySection.tsx, NewsCard.tsx
+  Header.tsx           → masthead del sitio (se muestra 1 sola vez, arriba de todo)
+  DaySection.tsx       → un día del scroll (fecha + resumen ejecutivo + categorías)
+  ExecutiveSummary.tsx, CategorySection.tsx, NewsCard.tsx
 lib/
-  types.ts             → tipos del briefing (grupos, subcategorías, noticia)
+  types.ts             → tipos del briefing (grupos, subcategorías por grupo, noticia)
   sources.ts           → lista de fuentes + temas de interés (editable)
   anthropic.ts         → prompt + llamada a la API de Claude + validación (zod)
   blob.ts              → guardar/leer el JSON en Vercel Blob
@@ -39,26 +44,31 @@ vercel.json             → configuración del cron
 1. **Vercel Cron Job** llama por `GET` a `/api/cron` una vez por día, con el
    header `Authorization: Bearer <CRON_SECRET>` que Vercel agrega solo.
 2. La ruta valida ese secreto y llama a `generateBriefingPayload()`
-   (`lib/anthropic.ts`), que le da a Claude las 8 URLs de fuentes y dos tools:
+   (`lib/anthropic.ts`), que le da a Claude las URLs de fuentes y dos tools:
    - `web_fetch`: para leer el contenido real de cada portada.
    - `web_search` (restringido a esos mismos dominios): de apoyo, para
      encontrar la URL directa de una nota puntual.
    Claude devuelve un único bloque JSON con el resumen ejecutivo y las
    noticias ya traducidas/sintetizadas (2-4 líneas, en español) y clasificadas
-   en grupo (`tecnologia` / `economia` / `politica`) + subcategoría
-   (`actualidad` / `notas_curiosas` / `tendencias`).
-3. Ese JSON se valida con `zod` y se guarda con `@vercel/blob` en
-   `briefing/latest.json` (mismo path siempre, se sobreescribe cada corrida).
-4. `app/page.tsx` (Server Component) lee ese blob y renderiza el dashboard.
-   Se revalida cada 5 minutos (`revalidate = 300`) — no hay que regenerar nada
-   en cada visita.
+   en un grupo + subcategoría **propia de ese grupo**:
+   - `tecnologia` / `economia` / `politica` → `actualidad` | `notas_curiosas` | `tendencias`
+   - `deportes` → `futbol` (solo Premier League/LaLiga) | `baloncesto` (solo NBA)
+3. Ese JSON se valida con `zod` (incluida la combinación grupo+subcategoría) y
+   se guarda con `@vercel/blob` en su propio archivo por fecha:
+   `briefing/YYYY-MM-DD.json`. No se pisa el histórico: cada día queda su
+   propio JSON (si el cron corre 2 veces el mismo día, la segunda corrida
+   reemplaza solo el archivo de ese día).
+4. `app/page.tsx` (Server Component) lee los últimos `HISTORY_DAYS` (14 por
+   default) con `getBriefingHistory()` y los renderiza como un scroll, del más
+   reciente al más antiguo, cada uno como un `DaySection`. Se revalida cada 5
+   minutos (`revalidate = 300`) — no hay que regenerar nada en cada visita.
 
 ### ¿Por qué Vercel Blob y no una base de datos?
 
-Es un solo objeto JSON que se sobreescribe una vez al día: no hace falta
+Es un JSON chico por día, de solo lectura para la home: no hace falta
 Postgres/Redis. `@vercel/blob` da un `put()`/`list()` simple, se activa desde
 el dashboard de Vercel en un clic y el plan gratuito alcanza de sobra para
-este uso.
+este uso (14-30 archivos livianos por mes).
 
 ## Variables de entorno
 
@@ -141,21 +151,28 @@ el header coincidan.
 - **Temas de interés / criterios de clasificación**: editá
   `TOPICS_OF_INTEREST` en `lib/sources.ts` y las reglas en
   `buildSystemPrompt()` dentro de `lib/anthropic.ts`.
-- **Grupos y subcategorías**: `lib/types.ts` (`GROUP_IDS`, `SUBCATEGORY_IDS`,
-  labels). Si agregás/sacás alguno, actualizá también el prompt en
-  `lib/anthropic.ts`.
+- **Grupos y subcategorías**: `lib/types.ts` (`GROUP_IDS`,
+  `SUBCATEGORIES_BY_GROUP`, labels). Cada grupo tiene su propio set de
+  subcategorías — no hace falta que los 4 compartan el mismo trío. Si
+  agregás/sacás alguno, actualizá también el prompt en `lib/anthropic.ts` y
+  los mapas de color en `components/NewsCard.tsx` / `CategorySection.tsx` /
+  `app/globals.css`.
+- **Cuántos días de histórico mostrar**: constante `HISTORY_DAYS` en
+  `app/page.tsx` (default 14).
 - **Modelo / cantidad de búsquedas**: constantes `MODEL`, `MAX_TOKENS` y los
   `max_uses` de las tools en `lib/anthropic.ts`.
 - **Colores y tipografía**: tokens en `app/globals.css` (`@theme`) — está
-  usando Newsreader (serif, para títulos) + Inter (sans, para el resto).
+  usando Newsreader (serif, para títulos) + Inter (sans, para el resto). Cada
+  grupo tiene su color (`--color-tecnologia`, `--color-economia`,
+  `--color-politica`, `--color-deportes`).
 
 ## Costos aproximados (Anthropic)
 
 - `web_search`: **US$10 cada 1.000 búsquedas**, más tokens estándar. Con
-  `max_uses: 10` por corrida, como mucho son 10 búsquedas/día ≈ centavos/mes.
+  `max_uses: 14` por corrida, como mucho son 14 búsquedas/día ≈ centavos/mes.
 - `web_fetch`: **sin costo adicional**, solo tokens estándar del contenido
   traído (con `max_content_tokens: 8000` por fetch para no dispararse).
-- Con 8 fuentes + razonamiento + JSON de salida, una corrida diaria con
+- Con 12 fuentes + razonamiento + JSON de salida, una corrida diaria con
   `claude-sonnet-5` debería costar centavos de dólar por día. Revisá el
   consumo real en [console.anthropic.com](https://console.anthropic.com).
 

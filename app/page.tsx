@@ -1,25 +1,26 @@
-import { CategorySection } from "@/components/CategorySection";
-import { ExecutiveSummary } from "@/components/ExecutiveSummary";
+import { DaySection } from "@/components/DaySection";
 import { Header } from "@/components/Header";
-import { getBriefing } from "@/lib/blob";
+import { getBriefingHistory } from "@/lib/blob";
 import { SOURCES } from "@/lib/sources";
-import { GROUP_IDS } from "@/lib/types";
 
 // Revalidamos cada 5 minutos: el cron corre 1x/día, esto solo evita
 // pegarle a Blob en cada visita sin dejar de reflejar la última corrida.
 export const revalidate = 300;
 
-export default async function HomePage() {
-  const briefing = await getBriefing();
+// Cuántos días de histórico mostrar en el scroll de la home.
+const HISTORY_DAYS = 14;
 
-  if (!briefing) {
+export default async function HomePage() {
+  const history = await getBriefingHistory(HISTORY_DAYS);
+
+  if (history.length === 0) {
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-ink-soft">
           Briefing diario
         </p>
         <h1 className="mt-3 font-serif text-3xl text-ink">
-          Todavía no hay un briefing generado
+          Todavía no hay ningún briefing generado
         </h1>
         <p className="mt-4 text-ink-soft">
           El resumen se genera automáticamente todas las mañanas. Volvé en un
@@ -32,27 +33,20 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-      <Header
-        displayDate={briefing.displayDate}
-        generatedAt={briefing.generatedAt}
-        itemCount={briefing.items.length}
-      />
+      <Header />
 
-      <ExecutiveSummary bullets={briefing.executiveSummary} />
-
-      {GROUP_IDS.map((group) => (
-        <CategorySection
-          key={group}
-          group={group}
-          items={briefing.items.filter((item) => item.group === group)}
-        />
+      {history.map((briefing, i) => (
+        <DaySection key={briefing.date} briefing={briefing} isLatest={i === 0} />
       ))}
 
-      <footer className="mt-16 border-t border-line pt-6 text-xs leading-relaxed text-ink-soft">
+      <footer className="mt-4 border-t border-line pt-6 text-xs leading-relaxed text-ink-soft">
         Curado y sintetizado automáticamente con IA a partir de{" "}
-        {SOURCES.map((s) => s.name).join(", ")}. Este contenido es un resumen
-        editorial generado por un modelo de lenguaje: para el detalle completo,
-        seguí el enlace a la fuente original de cada nota.
+        {Array.from(new Set(SOURCES.map((s) => s.name))).join(", ")}. Mostrando
+        los últimos{" "}
+        {history.length} día{history.length === 1 ? "" : "s"} disponibles. Este
+        contenido es un resumen editorial generado por un modelo de lenguaje:
+        para el detalle completo, seguí el enlace a la fuente original de cada
+        nota.
       </footer>
     </main>
   );

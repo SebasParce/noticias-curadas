@@ -59,6 +59,32 @@ export const SOURCES: Source[] = [
     language: "es",
     notes: "Economía y negocios en español.",
   },
+  {
+    name: "Diario AS",
+    url: "https://as.com/",
+    language: "es",
+    notes:
+      "Deportes: usar SOLO fútbol de Premier League/LaLiga y baloncesto NBA (ignorar todo lo demás: motor, tenis, otras ligas, etc.).",
+  },
+  {
+    name: "Marca",
+    url: "https://www.marca.com/",
+    language: "es",
+    notes:
+      "Deportes: fuerte en LaLiga y mercado de fichajes. Usar SOLO fútbol de Premier League/LaLiga y baloncesto NBA.",
+  },
+  {
+    name: "ESPN",
+    url: "https://www.espn.com/soccer/",
+    language: "en",
+    notes: "Fútbol: usar SOLO noticias de Premier League y LaLiga (resultados, fichajes/traspasos).",
+  },
+  {
+    name: "ESPN",
+    url: "https://www.espn.com/nba/",
+    language: "en",
+    notes: "Baloncesto NBA: partidos, resultados, fichajes/traspasos.",
+  },
 ];
 
 export const TOPICS_OF_INTEREST = [
@@ -68,4 +94,6 @@ export const TOPICS_OF_INTEREST = [
   "Economía",
   "Política internacional",
   "Notas curiosas / historias humanas interesantes",
+  "Fútbol de la Premier League y de LaLiga (España), incluyendo fichajes/traspasos",
+  "Baloncesto de la NBA, incluyendo fichajes/traspasos",
 ];

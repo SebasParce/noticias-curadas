@@ -1,11 +1,16 @@
-import type { GroupId, NewsItem, SubcategoryId } from "@/lib/types";
-import { GROUP_LABELS, SUBCATEGORY_IDS, SUBCATEGORY_LABELS } from "@/lib/types";
+import type { GroupId, NewsItem } from "@/lib/types";
+import {
+  GROUP_LABELS,
+  SUBCATEGORIES_BY_GROUP,
+  SUBCATEGORY_LABELS,
+} from "@/lib/types";
 import { NewsCard } from "./NewsCard";
 
 const GROUP_BORDER: Record<GroupId, string> = {
   tecnologia: "border-tecnologia",
   economia: "border-economia",
   politica: "border-politica",
+  deportes: "border-deportes",
 };
 
 export function CategorySection({
@@ -17,6 +22,8 @@ export function CategorySection({
 }) {
   if (items.length === 0) return null;
 
+  const subcategories = SUBCATEGORIES_BY_GROUP[group];
+
   return (
     <section className="mb-12 sm:mb-16">
       <h2
@@ -26,7 +33,7 @@ export function CategorySection({
       </h2>
 
       <div className="mt-6 space-y-8">
-        {SUBCATEGORY_IDS.map((subcategory: SubcategoryId) => {
+        {subcategories.map((subcategory) => {
           const subItems = items.filter(
             (item) => item.subcategory === subcategory,
           );

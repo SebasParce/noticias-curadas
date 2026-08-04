@@ -5,6 +5,7 @@ const GROUP_STYLES: Record<GroupId, { text: string; bg: string }> = {
   tecnologia: { text: "text-tecnologia", bg: "bg-tecnologia-soft" },
   economia: { text: "text-economia", bg: "bg-economia-soft" },
   politica: { text: "text-politica", bg: "bg-politica-soft" },
+  deportes: { text: "text-deportes", bg: "bg-deportes-soft" },
 };
 
 export function NewsCard({ item }: { item: NewsItem }) {

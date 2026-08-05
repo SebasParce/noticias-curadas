@@ -176,7 +176,13 @@ export async function generateBriefingPayload(
   // lib/sources.ts) y NO a web_search, que queda sin restricción de dominio.
   const allowedDomains = uniqueDomains(SOURCES.map((s) => s.url));
 
-  const response = await client.messages.create({
+  // Con max_tokens=24000 el SDK estima que la respuesta podría tardar más de
+  // 10 minutos y exige streaming en vez de una llamada bloqueante
+  // (client.messages.create) — ver
+  // https://github.com/anthropics/anthropic-sdk-typescript#long-requests.
+  // client.messages.stream() maneja el streaming solo y `finalMessage()` nos
+  // da el mismo objeto Message de siempre.
+  const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
     system: buildSystemPrompt(),
@@ -201,6 +207,8 @@ export async function generateBriefingPayload(
       },
     ],
   });
+
+  const response = await stream.finalMessage();
 
   const fullText = response.content
     .filter(

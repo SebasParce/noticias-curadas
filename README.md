@@ -193,9 +193,13 @@ el header coincidan.
   el formato esperado (raro, pero puede pasar). Reintentá; si persiste, revisá
   los logs para ver la respuesta cruda y ajustá el prompt en
   `lib/anthropic.ts`.
-- **Timeout en el cron**: `maxDuration` está en 120s (bien dentro del límite
-  de 300s de Hobby/Pro con Fluid Compute). Si necesitás más margen, subilo en
-  `app/api/cron/route.ts`.
+- **Timeout en el cron (`FUNCTION_INVOCATION_TIMEOUT`)**: `maxDuration` está
+  en 280s (el máximo real es 300s en Hobby/Pro con Fluid Compute). Una
+  corrida completa (6 fuentes + búsquedas + generar 15-35 noticias) puede
+  tardar 1-3 minutos, así que no te preocupes si el `curl` tarda en
+  responder. Si igual da timeout, la única forma de subir el límite es bajar
+  el trabajo por corrida (menos fuentes, `max_uses` más chico en
+  `lib/anthropic.ts`), porque 300s es el techo del plan.
 - **`400 ... domains are not accessible to our user agent: [...]`**: alguno
   de los dominios en `lib/sources.ts` bloquea el crawler de Anthropic
   (`robots.txt`). La API rechaza el pedido completo, no solo esa fuente. Sacá

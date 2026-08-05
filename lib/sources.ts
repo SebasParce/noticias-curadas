@@ -2,7 +2,16 @@
 // `url` debe ser una URL real y estable: Claude solo puede usar web_fetch
 // sobre URLs que ya aparecieron en el mensaje, así que estas se incluyen
 // directamente en el prompt.
-
+//
+// IMPORTANTE: la API de Anthropic valida que los dominios de `allowed_domains`
+// (web_fetch/web_search) sean accesibles para su crawler. Si un solo dominio
+// de la lista está bloqueado (robots.txt), la corrida ENTERA falla con un
+// 400, no solo esa fuente. Por eso NO están acá BBC, BBC Mundo, IGN, Marca
+// ni Diario AS: los 4 dominios (bbc.com, ign.com, marca.com, as.com)
+// bloquean el crawler de Anthropic. Si querés volver a probar alguno (o
+// alguno deja de bloquear en el futuro), agregalo, redeployá y corré el
+// cron a mano: si ese dominio sigue bloqueado, el error de la API te lo va
+// a decir explícitamente.
 export interface Source {
   name: string;
   url: string;
@@ -30,48 +39,16 @@ export const SOURCES: Source[] = [
     notes: "Tecnología y notas curiosas.",
   },
   {
-    name: "IGN",
-    url: "https://www.ign.com/",
-    language: "en",
-    notes: "Videojuegos y entretenimiento; usar solo si conecta con tecnología/tendencias.",
-  },
-  {
     name: "3DJuegos",
     url: "https://www.3djuegos.com/",
     language: "es",
     notes: "Videojuegos en español; usar solo si conecta con tecnología/tendencias.",
   },
   {
-    name: "BBC Mundo",
-    url: "https://www.bbc.com/mundo",
-    language: "es",
-    notes: "Política internacional y economía en español.",
-  },
-  {
-    name: "BBC",
-    url: "https://www.bbc.com/",
-    language: "en",
-    notes: "Política internacional, economía y notas curiosas.",
-  },
-  {
     name: "Bloomberg Línea",
     url: "https://www.bloomberglinea.com/actualidad/",
     language: "es",
     notes: "Economía y negocios en español.",
-  },
-  {
-    name: "Diario AS",
-    url: "https://as.com/",
-    language: "es",
-    notes:
-      "Deportes: usar SOLO fútbol de Premier League/LaLiga y baloncesto NBA (ignorar todo lo demás: motor, tenis, otras ligas, etc.).",
-  },
-  {
-    name: "Marca",
-    url: "https://www.marca.com/",
-    language: "es",
-    notes:
-      "Deportes: fuerte en LaLiga y mercado de fichajes. Usar SOLO fútbol de Premier League/LaLiga y baloncesto NBA.",
   },
   {
     name: "ESPN",

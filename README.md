@@ -1,13 +1,18 @@
 # Briefing — Noticias curadas
 
 Dashboard tipo "morning briefing": un cron diario usa Claude (con `web_fetch` +
-`web_search`) para leer TechCrunch, Xataka, Gizmodo en español, IGN, 3DJuegos,
-BBC, BBC Mundo, Bloomberg Línea, Diario AS, Marca y ESPN; filtra lo relevante a
-tecnología/startups/AI, economía, política internacional y deportes (fútbol de
-Premier League/LaLiga y baloncesto NBA); lo sintetiza en español y lo
-clasifica. Cada corrida se guarda como un JSON propio en Vercel Blob (uno por
-día) y la home muestra un scroll con el histórico de los últimos días — nada
-se pisa ni se borra.
+`web_search`) para leer TechCrunch, Xataka, Gizmodo en español, 3DJuegos,
+Bloomberg Línea y ESPN; usa `web_search` sin restricción de dominio para
+completar política internacional y deportes (que no tienen portada fija); y
+filtra todo eso a tecnología/startups/AI, economía, política internacional y
+deportes (fútbol de Premier League/LaLiga y baloncesto NBA). Lo sintetiza en
+español y lo clasifica. Cada corrida se guarda como un JSON propio en Vercel
+Blob (uno por día) y la home muestra un scroll con el histórico de los
+últimos días — nada se pisa ni se borra.
+
+> **Nota:** BBC, BBC Mundo, IGN, Marca y Diario AS bloquean el crawler de
+> Anthropic (robots.txt) y no pueden estar en la lista de `web_fetch` — ver
+> el comentario en `lib/sources.ts` y la sección de Troubleshooting.
 
 ## Stack
 
@@ -191,3 +196,9 @@ el header coincidan.
 - **Timeout en el cron**: `maxDuration` está en 120s (bien dentro del límite
   de 300s de Hobby/Pro con Fluid Compute). Si necesitás más margen, subilo en
   `app/api/cron/route.ts`.
+- **`400 ... domains are not accessible to our user agent: [...]`**: alguno
+  de los dominios en `lib/sources.ts` bloquea el crawler de Anthropic
+  (`robots.txt`). La API rechaza el pedido completo, no solo esa fuente. Sacá
+  ese dominio de `SOURCES` (o probá agregar uno nuevo con cuidado: si está
+  bloqueado, el próximo intento te lo va a decir explícitamente en el mismo
+  formato de error) y volvé a correr el cron a mano.

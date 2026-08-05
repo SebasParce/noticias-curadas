@@ -65,7 +65,7 @@ function buildSystemPrompt(): string {
 
 Tu trabajo en cada corrida:
 1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario.
-2. Usar web_search, restringido a esos mismos dominios, como apoyo para confirmar datos o encontrar la URL directa de una nota puntual cuando la portada no la deja clara.
+2. Usar web_search (sin restricción de dominio) para dos cosas: (a) apoyo para confirmar datos o encontrar la URL directa de una nota puntual cuando la portada no la deja clara, y (b) cubrir "política internacional" y completar deportes, ya que no hay una fuente de portada fija para esos temas — ahí buscá directamente en medios internacionales serios y reconocidos (agencias, diarios de referencia, etc.) y citá la fuente real que encontraste en el campo "source".
 3. Quedarte solo con las noticias relevantes a los temas de interés indicados.
 4. Escribir cada noticia relevante en español (traducila si la fuente está en inglés) como un título corto y una síntesis de 2 a 4 líneas (entre 30 y 70 palabras), con tono informativo y directo, sin clickbait.
 5. Clasificar cada noticia en un grupo y una subcategoría, usando EXCLUSIVAMENTE estas combinaciones válidas (no inventes otras):
@@ -81,11 +81,12 @@ Reglas de clasificación:
   - "futbol": SOLO Premier League y LaLiga (España). Incluí resultados, posiciones, fichajes/traspasos y bajas/lesiones relevantes de esos clubes. NO incluyas Champions League, Europa League, selecciones nacionales, Serie A, Bundesliga, Ligue 1 ni ninguna otra liga o país.
   - "baloncesto": SOLO NBA. Incluí partidos, resultados, fichajes/traspasos y lesiones relevantes. NO incluyas Euroliga, ACB ni otras ligas de básquet.
   - Si una noticia de deportes no encaja exactamente en esos dos casos, no la incluyas: preferí quedarte corto antes que meter ruido de otras ligas o deportes.
-- Para IGN y 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
-- Si una fuente no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
+- Para 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
+- Para "politica" (no hay portada fija para este tema): buscá con web_search en 2-3 medios internacionales serios y reconocidos, priorizando agencias y diarios de referencia. Evitá tabloides o fuentes de baja calidad.
+- Si una fuente de portada no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
 - No dupliques la misma noticia si aparece en más de una fuente; quedate con la cobertura más completa y mencioná esa fuente.
 - El campo "url" debe ser la URL de la nota puntual (no la portada) cuando esté disponible; si de verdad no se puede obtener, usá la URL de portada de esa fuente.
-- El campo "source" debe ser exactamente el nombre de fuente que te pasó el usuario (ej. "TechCrunch", "BBC Mundo", "ESPN").
+- El campo "source" debe ser el nombre real de la fuente de esa noticia: para las fuentes de portada, exactamente el nombre que te pasó el usuario (ej. "TechCrunch", "ESPN"); para lo que encuentres vía web_search (sobre todo política), el nombre real del medio que la publicó (ej. "Reuters", "The Guardian", "DW").
 
 Formato de salida (muy importante):
 - No agregues comentarios, saludos ni explicaciones fuera del JSON.
@@ -126,7 +127,7 @@ ${sourceLines}
 
 Temas de interés (filtrá solo lo que conecte con esto): ${topics}.
 
-Visitá cada fuente con web_fetch para ver qué hay de nuevo hoy. Usá web_search (limitado a estos mismos dominios) si necesitás encontrar la URL directa de una nota o confirmar un dato. Priorizá contenido de las últimas 24-48 horas.
+Visitá cada fuente con web_fetch para ver qué hay de nuevo hoy. Usá web_search libremente (no está limitado a estos dominios) tanto de apoyo para esas fuentes como para cubrir política internacional y completar deportes, que no tienen portada fija en esta lista. Priorizá contenido de las últimas 24-48 horas.
 
 Devolvé el resultado siguiendo exactamente el formato JSON indicado en las instrucciones del sistema.`;
 }
@@ -161,6 +162,11 @@ export async function generateBriefingPayload(
   }
 
   const client = new Anthropic({ apiKey });
+  // OJO: la API de Anthropic valida que TODOS los dominios de
+  // `allowed_domains` sean accesibles a su crawler; si uno solo está
+  // bloqueado (robots.txt), la corrida entera falla con 400. Por eso esta
+  // restricción se aplica solo a web_fetch (con las fuentes ya filtradas en
+  // lib/sources.ts) y NO a web_search, que queda sin restricción de dominio.
   const allowedDomains = uniqueDomains(SOURCES.map((s) => s.url));
 
   const response = await client.messages.create({
@@ -180,7 +186,6 @@ export async function generateBriefingPayload(
         type: "web_search_20250305",
         name: "web_search",
         max_uses: 14,
-        allowed_domains: allowedDomains,
       },
     ],
   });

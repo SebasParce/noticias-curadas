@@ -11,10 +11,11 @@ import {
 // Modelo de Claude a usar para curar y sintetizar el briefing.
 const MODEL = "claude-sonnet-5";
 // Entre fetches, búsquedas y la narración de cada paso, el modelo puede
-// gastar el presupuesto de output ANTES de llegar al JSON final (se vio un
-// stop_reason=max_tokens con 12000). Le damos bastante más margen y además
-// le pedimos explícitamente que sea breve entre llamadas a herramientas.
-const MAX_TOKENS = 16000;
+// gastar el presupuesto de output ANTES de llegar al JSON final (se vieron
+// stop_reason=max_tokens con 12000 y con 16000). Subimos bastante más el
+// techo y, sobre todo, acotamos con números concretos cuánto puede explorar
+// (ver system prompt y max_uses de las tools más abajo).
+const MAX_TOKENS = 24000;
 
 const NewsItemSchema = z
   .object({
@@ -67,9 +68,9 @@ function buildSystemPrompt(): string {
 
   return `Sos el editor automático de "Briefing", un panel de noticias curadas en español.
 
-Tu trabajo en cada corrida:
-1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario.
-2. Usar web_search (sin restricción de dominio) para dos cosas: (a) apoyo para confirmar datos o encontrar la URL directa de una nota puntual cuando la portada no la deja clara, y (b) cubrir "política internacional" y completar deportes, ya que no hay una fuente de portada fija para esos temas — ahí buscá directamente en medios internacionales serios y reconocidos (agencias, diarios de referencia, etc.) y citá la fuente real que encontraste en el campo "source".
+Tu trabajo en cada corrida (con límites de uso de herramientas ESTRICTOS, ver más abajo):
+1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario. Una sola vez cada una: 7 fetches en total, no repitas ninguna.
+2. Usar web_search (sin restricción de dominio), como MÁXIMO 4 búsquedas en total en toda la corrida, repartidas así: 1-2 para política internacional, 1-2 para completar deportes (fichajes/resultados que no aparecieron en la portada de ESPN). No uses las 4 si con 2 ya tenés material suficiente.
 3. Quedarte solo con las noticias relevantes a los temas de interés indicados.
 4. Escribir cada noticia relevante en español (traducila si la fuente está en inglés) como un título corto y una síntesis de 2 a 4 líneas (entre 30 y 70 palabras), con tono informativo y directo, sin clickbait.
 5. Clasificar cada noticia en un grupo y una subcategoría, usando EXCLUSIVAMENTE estas combinaciones válidas (no inventes otras):
@@ -86,7 +87,7 @@ Reglas de clasificación:
   - "baloncesto": SOLO NBA. Incluí partidos, resultados, fichajes/traspasos y lesiones relevantes. NO incluyas Euroliga, ACB ni otras ligas de básquet.
   - Si una noticia de deportes no encaja exactamente en esos dos casos, no la incluyas: preferí quedarte corto antes que meter ruido de otras ligas o deportes.
 - Para 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
-- Para "politica" (no hay portada fija para este tema): buscá con web_search en 2-3 medios internacionales serios y reconocidos, priorizando agencias y diarios de referencia. Evitá tabloides o fuentes de baja calidad.
+- Para "politica" (no hay portada fija para este tema): con 1-2 búsquedas de web_search alcanza para encontrar varias noticias de medios internacionales serios (agencias, diarios de referencia). Evitá tabloides o fuentes de baja calidad, y evitá seguir buscando variantes de la misma búsqueda.
 - Si una fuente de portada no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
 - No dupliques la misma noticia si aparece en más de una fuente; quedate con la cobertura más completa y mencioná esa fuente.
 - El campo "url" debe ser la URL de la nota puntual (no la portada) cuando esté disponible; si de verdad no se puede obtener, usá la URL de portada de esa fuente.
@@ -133,7 +134,7 @@ ${sourceLines}
 
 Temas de interés (filtrá solo lo que conecte con esto): ${topics}.
 
-Visitá cada fuente con web_fetch para ver qué hay de nuevo hoy. Usá web_search libremente (no está limitado a estos dominios) tanto de apoyo para esas fuentes como para cubrir política internacional y completar deportes, que no tienen portada fija en esta lista. Priorizá contenido de las últimas 24-48 horas.
+Visitá cada fuente con web_fetch una sola vez (7 fetches en total). Usá como máximo 4 búsquedas de web_search en toda la corrida (no restringidas a estos dominios): 1-2 para política internacional y 1-2 para completar deportes. Priorizá contenido de las últimas 24-48 horas y sé eficiente con el presupuesto de tokens.
 
 Devolvé el resultado siguiendo exactamente el formato JSON indicado en las instrucciones del sistema.`;
 }
@@ -184,17 +185,19 @@ export async function generateBriefingPayload(
       {
         type: "web_fetch_20250910",
         name: "web_fetch",
-        // 7 URLs configuradas + algo de margen para seguir un link puntual.
-        max_uses: 10,
+        // Exactamente las URLs configuradas (7), sin margen: el prompt le
+        // pide una sola pasada por fuente.
+        max_uses: SOURCES.length,
         allowed_domains: allowedDomains,
         max_content_tokens: 8000,
       },
       {
         type: "web_search_20250305",
         name: "web_search",
-        // Acotado a propósito: cada búsqueda de más consume presupuesto de
-        // output que necesitamos para el JSON final.
-        max_uses: 8,
+        // Tope técnico alineado al límite de 4 búsquedas del prompt: cada
+        // búsqueda de más consume presupuesto de output que necesitamos
+        // para el JSON final.
+        max_uses: 4,
       },
     ],
   });

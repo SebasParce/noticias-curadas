@@ -10,7 +10,11 @@ import {
 
 // Modelo de Claude a usar para curar y sintetizar el briefing.
 const MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 12000;
+// Entre fetches, búsquedas y la narración de cada paso, el modelo puede
+// gastar el presupuesto de output ANTES de llegar al JSON final (se vio un
+// stop_reason=max_tokens con 12000). Le damos bastante más margen y además
+// le pedimos explícitamente que sea breve entre llamadas a herramientas.
+const MAX_TOKENS = 16000;
 
 const NewsItemSchema = z
   .object({
@@ -90,6 +94,8 @@ Reglas de clasificación:
 
 Formato de salida (muy importante):
 - No agregues comentarios, saludos ni explicaciones fuera del JSON.
+- Sé MUY breve entre llamadas a herramientas: no narres cada fetch ni cada búsqueda con texto largo ("voy a revisar...", "ahora busco..."). Si necesitás decir algo, una frase corta alcanza; después andá directo a la siguiente acción. Tu presupuesto de tokens de salida es limitado y tiene que alcanzar para el JSON final con todas las noticias.
+- No hagas más búsquedas/fetches de los necesarios: priorizá cubrir bien los temas por sobre agotar el máximo de usos disponible de cada herramienta.
 - Antes del JSON podés razonar brevemente y hacer las llamadas a las herramientas, pero el turno debe terminar SIEMPRE con un único bloque de código \`\`\`json que contenga un objeto JSON válido y nada más después de ese bloque.
 - El JSON debe tener exactamente esta forma:
 
@@ -178,14 +184,17 @@ export async function generateBriefingPayload(
       {
         type: "web_fetch_20250910",
         name: "web_fetch",
-        max_uses: 24,
+        // 7 URLs configuradas + algo de margen para seguir un link puntual.
+        max_uses: 10,
         allowed_domains: allowedDomains,
         max_content_tokens: 8000,
       },
       {
         type: "web_search_20250305",
         name: "web_search",
-        max_uses: 14,
+        // Acotado a propósito: cada búsqueda de más consume presupuesto de
+        // output que necesitamos para el JSON final.
+        max_uses: 8,
       },
     ],
   });

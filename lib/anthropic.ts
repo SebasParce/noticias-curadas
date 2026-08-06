@@ -101,6 +101,8 @@ Reglas de clasificación:
   - "nuevas_rutas": anuncios de rutas aéreas nuevas que salen de aeropuertos de Estados Unidos.
   - "ia_aeronautica": uso de inteligencia artificial en aviación o en misiones/operaciones espaciales.
   Priorizá las portadas de NASA y ESA para carrera_espacial/estacion_espacial/transbordadores; usá las búsquedas dedicadas de aeronáutica solo para las subcategorías más "de industria" (adquisiciones, propulsión, aerolíneas/rutas, IA) que esas portadas no suelen cubrir.
+  NASA y ESA no publican una nota nueva todos los días como un medio de noticias: si no hay nada de las últimas 24-48 horas, igual tomá la historia principal/destacada que esté en portada ese día (aunque tenga algunos días), en vez de dejar "aeronautica" completamente vacío. Este grupo casi siempre debería tener al menos 2-3 noticias por corrida.
+- Antes de cerrar el JSON, repasá que hayas sacado algo de CADA fuente de portada que tenía contenido usable (incluidas NASA y ESA) y de cada tema de interés — no dejes un grupo entero en cero solo por apurarte.
 - Si una fuente de portada no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
 - No dupliques la misma noticia si aparece en más de una fuente; quedate con la cobertura más completa y mencioná esa fuente.
 - El campo "url" debe ser la URL de la nota puntual (no la portada) cuando esté disponible; si de verdad no se puede obtener, usá la URL de portada de esa fuente.

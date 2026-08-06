@@ -44,22 +44,18 @@ export function BriefingBrowser({ history }: BriefingBrowserProps) {
     [selectedBriefing],
   );
 
-  const hasMultipleDays = history.length > 1;
-
   function handleSelectDate(date: string) {
     setSelectedDate(date);
     setSelectedGroup("todas");
   }
 
   return (
-    <div className={hasMultipleDays ? "lg:grid lg:grid-cols-[140px_1fr] lg:gap-12" : ""}>
-      {hasMultipleDays && (
-        <DateNav
-          days={navDays}
-          selectedDate={selectedBriefing.date}
-          onSelect={handleSelectDate}
-        />
-      )}
+    <div className="lg:grid lg:grid-cols-[140px_1fr] lg:gap-12">
+      <DateNav
+        days={navDays}
+        selectedDate={selectedBriefing.date}
+        onSelect={handleSelectDate}
+      />
 
       <div>
         <CategoryTabs

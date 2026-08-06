@@ -35,11 +35,15 @@ export function BriefingBrowser({ history }: BriefingBrowserProps) {
     [history],
   );
 
-  // Solo mostramos tabs de categorías que tengan al menos una noticia ese día.
+  // Mostramos tabs de categorías que tengan al menos una noticia ese día.
+  // Aeronáutica es la excepción: se deja fija aunque ese día no haya
+  // noticias, para que la sección nunca desaparezca del menú.
   const availableGroups = useMemo(
     () =>
-      GROUP_IDS.filter((group) =>
-        selectedBriefing.items.some((item) => item.group === group),
+      GROUP_IDS.filter(
+        (group) =>
+          group === "aeronautica" ||
+          selectedBriefing.items.some((item) => item.group === group),
       ),
     [selectedBriefing],
   );

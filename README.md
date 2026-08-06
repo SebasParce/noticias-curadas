@@ -4,14 +4,17 @@ Dashboard tipo "morning briefing": un cron diario usa Claude (con `web_fetch` +
 `web_search`) para leer TechCrunch, Xataka, Gizmodo en español, 3DJuegos,
 Bloomberg Línea, ESPN, NASA y ESA; usa `web_search` sin restricción de dominio
 para completar política internacional, deportes y aeronáutica (temas sin
-portada fija); y filtra todo eso a tecnología/startups/AI, economía, política
-internacional, deportes (fútbol de Premier League/LaLiga y baloncesto NBA) y
-aeronáutica (carrera espacial, estación espacial, transbordadores,
-adquisiciones, propulsión, aerolíneas y rutas nuevas, IA en aviación). Lo
-sintetiza en español y lo clasifica. Cada corrida se guarda como un JSON
-propio en Vercel Blob (uno por día) y la home muestra un scroll con el
-histórico de los últimos días — con un menú lateral para saltar directo a una
-fecha — y nada se pisa ni se borra.
+portada fija); y filtra todo eso a tecnología (incluye videojuegos)/startups/
+AI, economía, política internacional, deportes (fútbol de Premier League/
+LaLiga y baloncesto NBA) y aeronáutica (carrera espacial, estación espacial,
+transbordadores, adquisiciones, propulsión, aerolíneas y rutas nuevas, IA en
+aviación). Lo sintetiza en español y lo clasifica. Cada corrida se guarda
+como un JSON propio en Vercel Blob (uno por día) — nada se pisa ni se borra.
+
+La home es una vista maestro-detalle: un menú de fechas a la izquierda (de la
+más vieja a la más reciente) y, a la derecha, tabs de categoría arriba del
+contenido del día seleccionado. Clickear una fecha o una categoría filtra la
+vista, no hay que scrollear por todo el histórico.
 
 > **Nota:** BBC, BBC Mundo, IGN, Marca y Diario AS bloquean el crawler de
 > Anthropic (robots.txt) y no pueden estar en la lista de `web_fetch` — ver
@@ -35,8 +38,10 @@ app/
   layout.tsx, globals.css
 components/
   Header.tsx           → masthead del sitio (se muestra 1 sola vez, arriba de todo)
-  DateNav.tsx          → menú de fechas (sticky en desktop, pills en mobile)
-  DaySection.tsx       → un día del scroll (fecha + resumen ejecutivo + categorías)
+  BriefingBrowser.tsx  → client component: guarda qué fecha/categoría está seleccionada
+  DateNav.tsx          → menú de fechas (sticky en desktop, pills en mobile), clickeable
+  CategoryTabs.tsx     → tabs de categoría arriba a la derecha, clickeables
+  DaySection.tsx       → contenido del día seleccionado (fecha + resumen ejecutivo + categorías)
   ExecutiveSummary.tsx, CategorySection.tsx, NewsCard.tsx
 lib/
   types.ts             → tipos del briefing (grupos, subcategorías por grupo, noticia)
@@ -60,7 +65,8 @@ vercel.json             → configuración del cron
    Claude devuelve un único bloque JSON con el resumen ejecutivo y las
    noticias ya traducidas/sintetizadas (2-4 líneas, en español) y clasificadas
    en un grupo + subcategoría **propia de ese grupo**:
-   - `tecnologia` / `economia` / `politica` → `actualidad` | `notas_curiosas` | `tendencias`
+   - `tecnologia` → `actualidad` | `notas_curiosas` | `tendencias` | `videojuegos`
+   - `economia` / `politica` → `actualidad` | `notas_curiosas` | `tendencias`
    - `deportes` → `futbol` (solo Premier League/LaLiga) | `baloncesto` (solo NBA)
    - `aeronautica` → `carrera_espacial` | `estacion_espacial` | `transbordadores` |
      `adquisiciones_aviacion` | `propulsion` | `nuevas_aerolineas` | `nuevas_rutas` |
@@ -76,9 +82,11 @@ vercel.json             → configuración del cron
    propio JSON (si el cron corre 2 veces el mismo día, la segunda corrida
    reemplaza solo el archivo de ese día).
 4. `app/page.tsx` (Server Component) lee los últimos `HISTORY_DAYS` (14 por
-   default) con `getBriefingHistory()` y los renderiza como un scroll, del más
-   reciente al más antiguo, cada uno como un `DaySection`. Se revalida cada 5
-   minutos (`revalidate = 300`) — no hay que regenerar nada en cada visita.
+   default) con `getBriefingHistory()` y se los pasa a `BriefingBrowser`
+   (client component), que arma la vista maestro-detalle: `DateNav` a la
+   izquierda, `CategoryTabs` arriba a la derecha, y `DaySection` muestra el
+   día + categoría que estén seleccionados. Se revalida cada 5 minutos
+   (`revalidate = 300`) — no hay que regenerar nada en cada visita.
 
 ### ¿Por qué Vercel Blob y no una base de datos?
 

@@ -84,11 +84,12 @@ Reglas de clasificación:
 - "actualidad": hechos noticiosos del día o de las últimas 24-48 horas. Aplica solo a tecnologia/economia/politica.
 - "tendencias": análisis, patrones o cambios de mediano plazo (no es una noticia puntual de hoy, sino "hacia dónde va" algo). Aplica solo a tecnologia/economia/politica.
 - "notas_curiosas": historias curiosas, insólitas, human-interest o llamativas que no encajan como noticia dura pero valen la pena. Aplica solo a tecnologia/economia/politica.
+- "videojuegos" (solo dentro de "tecnologia"): noticias de la industria de los videojuegos (lanzamientos, hardware, estudios, negocio). No hace falta que conecten con IA/tecnología general para incluirlas acá.
 - El grupo "deportes" es un caso aparte, con sus propias subcategorías y criterio de filtro MUY estricto:
   - "futbol": SOLO Premier League y LaLiga (España). Incluí resultados, posiciones, fichajes/traspasos y bajas/lesiones relevantes de esos clubes. NO incluyas Champions League, Europa League, selecciones nacionales, Serie A, Bundesliga, Ligue 1 ni ninguna otra liga o país.
   - "baloncesto": SOLO NBA. Incluí partidos, resultados, fichajes/traspasos y lesiones relevantes. NO incluyas Euroliga, ACB ni otras ligas de básquet.
   - Si una noticia de deportes no encaja exactamente en esos dos casos, no la incluyas: preferí quedarte corto antes que meter ruido de otras ligas o deportes.
-- Para 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
+- Para 3DJuegos: clasificalo como tecnologia/videojuegos. Cubrí industria, lanzamientos y hardware; evitá reseñas de un solo juego sin ángulo de industria/negocio.
 - Para "politica" (no hay portada fija para este tema): con 1-2 búsquedas de web_search alcanza para encontrar varias noticias de medios internacionales serios (agencias, diarios de referencia). Evitá tabloides o fuentes de baja calidad, y evitá seguir buscando variantes de la misma búsqueda.
 - El grupo "aeronautica" cubre espacio + aviación comercial, con estas subcategorías:
   - "carrera_espacial": misiones, lanzamientos y programas que compitan/avancen la exploración espacial (Artemis, Starship, misiones lunares/marcianas, programas espaciales de distintos países).

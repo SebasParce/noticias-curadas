@@ -1,44 +1,36 @@
 import { getTimezone } from "@/lib/date";
 import type { Briefing } from "@/lib/types";
 import { GROUP_IDS } from "@/lib/types";
+import type { GroupFilter } from "./CategoryTabs";
 import { CategorySection } from "./CategorySection";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 
 interface DaySectionProps {
   briefing: Briefing;
-  /** El primero del scroll (el más reciente) se muestra más grande. */
-  isLatest: boolean;
+  isToday: boolean;
+  groupFilter: GroupFilter;
 }
 
-export function DaySection({ briefing, isLatest }: DaySectionProps) {
+// Contenido del día seleccionado en el panel derecho: encabezado + resumen
+// ejecutivo + las categorías (todas, o solo una si hay un filtro activo).
+export function DaySection({ briefing, isToday, groupFilter }: DaySectionProps) {
   const generatedLabel = new Intl.DateTimeFormat("es-ES", {
     timeZone: getTimezone(),
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(briefing.generatedAt));
 
+  const groupsToShow = groupFilter === "todas" ? GROUP_IDS : [groupFilter];
+
   return (
-    <section
-      id={`day-${briefing.date}`}
-      className={
-        isLatest
-          ? "scroll-mt-8 mb-14 sm:mb-20"
-          : "scroll-mt-8 mb-14 border-t border-line pt-12 sm:mb-20 sm:pt-16"
-      }
-    >
-      <header className="mb-8 sm:mb-10">
-        {isLatest && (
+    <section>
+      <header className="mb-8">
+        {isToday && (
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-tecnologia">
             Hoy
           </p>
         )}
-        <h2
-          className={
-            isLatest
-              ? "font-serif text-3xl leading-tight text-ink sm:text-4xl md:text-5xl"
-              : "font-serif text-2xl leading-tight text-ink sm:text-3xl"
-          }
-        >
+        <h2 className="font-serif text-2xl leading-tight text-ink sm:text-3xl">
           {briefing.displayDate}
         </h2>
         <p className="mt-2 text-sm text-ink-soft">
@@ -49,7 +41,7 @@ export function DaySection({ briefing, isLatest }: DaySectionProps) {
 
       <ExecutiveSummary bullets={briefing.executiveSummary} />
 
-      {GROUP_IDS.map((group) => (
+      {groupsToShow.map((group) => (
         <CategorySection
           key={group}
           group={group}

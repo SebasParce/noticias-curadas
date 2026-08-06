@@ -42,7 +42,8 @@ export const SOURCES: Source[] = [
     name: "3DJuegos",
     url: "https://www.3djuegos.com/",
     language: "es",
-    notes: "Videojuegos en español; usar solo si conecta con tecnología/tendencias.",
+    notes:
+      "Videojuegos en español: industria, lanzamientos, hardware. Clasificar como tecnologia/videojuegos.",
   },
   {
     name: "Bloomberg Línea",
@@ -80,6 +81,7 @@ export const SOURCES: Source[] = [
 
 export const TOPICS_OF_INTEREST = [
   "Tecnología",
+  "Videojuegos (industria, lanzamientos, hardware)",
   "Startups",
   "Inteligencia artificial",
   "Economía",

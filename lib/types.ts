@@ -14,7 +14,7 @@ export type GroupId = (typeof GROUP_IDS)[number];
 // deportes usa las dos disciplinas que le interesan a Sebas, y aeronáutica
 // usa 8 subtemas puntuales (espacio + aviación comercial).
 export const SUBCATEGORIES_BY_GROUP = {
-  tecnologia: ["actualidad", "notas_curiosas", "tendencias"],
+  tecnologia: ["actualidad", "notas_curiosas", "tendencias", "videojuegos"],
   economia: ["actualidad", "notas_curiosas", "tendencias"],
   politica: ["actualidad", "notas_curiosas", "tendencias"],
   deportes: ["futbol", "baloncesto"],
@@ -79,6 +79,7 @@ export const SUBCATEGORY_LABELS: Record<SubcategoryId, string> = {
   actualidad: "Actualidad",
   notas_curiosas: "Notas curiosas",
   tendencias: "Tendencias",
+  videojuegos: "Videojuegos",
   futbol: "Fútbol",
   baloncesto: "Baloncesto",
   carrera_espacial: "Carrera espacial",

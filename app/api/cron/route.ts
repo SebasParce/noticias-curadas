@@ -6,11 +6,11 @@ import type { Briefing } from "@/lib/types";
 
 // Necesitamos Node.js (no Edge) por el SDK de Anthropic y @vercel/blob.
 export const runtime = "nodejs";
-// Fetches + búsquedas + generar ~15-35 noticias puede tardar 1-3 min en la
-// práctica (se vio un FUNCTION_INVOCATION_TIMEOUT en 120s). Con Fluid
-// Compute, Hobby y Pro soportan hasta 300s por default: dejamos casi todo
-// ese margen.
-export const maxDuration = 280;
+// Fetches + búsquedas + generar ~20-45 noticias (incluye aeronáutica) puede
+// tardar varios minutos en la práctica (se vio un FUNCTION_INVOCATION_TIMEOUT
+// en 120s). 300s es el techo real en Hobby/Pro con Fluid Compute: dejamos
+// casi todo ese margen.
+export const maxDuration = 295;
 
 function isAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;

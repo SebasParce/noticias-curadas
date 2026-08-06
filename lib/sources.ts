@@ -62,6 +62,20 @@ export const SOURCES: Source[] = [
     language: "en",
     notes: "Baloncesto NBA: partidos, resultados, fichajes/traspasos.",
   },
+  {
+    name: "NASA",
+    url: "https://www.nasa.gov/",
+    language: "en",
+    notes:
+      "Aeronáutica/espacio: carrera espacial, estación espacial, transbordadores/lanzamientos. Sitio de gobierno, no bloquea crawlers de IA.",
+  },
+  {
+    name: "ESA",
+    url: "https://www.esa.int/",
+    language: "en",
+    notes:
+      "Aeronáutica/espacio (perspectiva europea): carrera espacial, estación espacial, lanzamientos. Sitio de gobierno/agencia pública.",
+  },
 ];
 
 export const TOPICS_OF_INTEREST = [
@@ -73,4 +87,5 @@ export const TOPICS_OF_INTEREST = [
   "Notas curiosas / historias humanas interesantes",
   "Fútbol de la Premier League y de LaLiga (España), incluyendo fichajes/traspasos",
   "Baloncesto de la NBA, incluyendo fichajes/traspasos",
+  "Aeronáutica: carrera espacial, estación espacial, transbordadores/lanzamientos, adquisiciones en aviación comercial, avances en propulsión, nuevas aerolíneas, nuevas rutas desde EE.UU., IA en aeronáutica",
 ];

@@ -11,6 +11,7 @@ const GROUP_BORDER: Record<GroupId, string> = {
   economia: "border-economia",
   politica: "border-politica",
   deportes: "border-deportes",
+  aeronautica: "border-aeronautica",
 };
 
 export function CategorySection({

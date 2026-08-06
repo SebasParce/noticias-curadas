@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { jsonrepair } from "jsonrepair";
 import { z } from "zod";
 import { SOURCES, TOPICS_OF_INTEREST } from "./sources";
 import {
@@ -14,8 +15,9 @@ const MODEL = "claude-sonnet-5";
 // gastar el presupuesto de output ANTES de llegar al JSON final (se vieron
 // stop_reason=max_tokens con 12000 y con 16000). Subimos bastante más el
 // techo y, sobre todo, acotamos con números concretos cuánto puede explorar
-// (ver system prompt y max_uses de las tools más abajo).
-const MAX_TOKENS = 24000;
+// (ver system prompt y max_uses de las tools más abajo). Con el grupo
+// "aeronautica" hay más temas a cubrir, así que le damos aún más margen.
+const MAX_TOKENS = 32000;
 
 const NewsItemSchema = z
   .object({
@@ -69,8 +71,8 @@ function buildSystemPrompt(): string {
   return `Sos el editor automático de "Briefing", un panel de noticias curadas en español.
 
 Tu trabajo en cada corrida (con límites de uso de herramientas ESTRICTOS, ver más abajo):
-1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario. Una sola vez cada una: 7 fetches en total, no repitas ninguna.
-2. Usar web_search (sin restricción de dominio), como MÁXIMO 4 búsquedas en total en toda la corrida, repartidas así: 1-2 para política internacional, 1-2 para completar deportes (fichajes/resultados que no aparecieron en la portada de ESPN). No uses las 4 si con 2 ya tenés material suficiente.
+1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario, incluidas NASA y ESA. Una sola vez cada una: 9 fetches en total, no repitas ninguna.
+2. Usar web_search (sin restricción de dominio), como MÁXIMO 8 búsquedas en total en toda la corrida, repartidas así: 1-2 para política internacional, 1-2 para completar deportes (fichajes/resultados que no aparecieron en la portada de ESPN), y hasta 4 para completar aeronáutica (1 para adquisiciones en aviación comercial, 1 para avances en propulsión, 1 para nuevas aerolíneas/nuevas rutas desde EE.UU., 1 para IA en aeronáutica). No uses más búsquedas de las necesarias: si con menos ya tenés material suficiente, seguí de largo.
 3. Quedarte solo con las noticias relevantes a los temas de interés indicados.
 4. Escribir cada noticia relevante en español (traducila si la fuente está en inglés) como un título corto y una síntesis de 2 a 4 líneas (entre 30 y 70 palabras), con tono informativo y directo, sin clickbait.
 5. Clasificar cada noticia en un grupo y una subcategoría, usando EXCLUSIVAMENTE estas combinaciones válidas (no inventes otras):
@@ -88,6 +90,16 @@ Reglas de clasificación:
   - Si una noticia de deportes no encaja exactamente en esos dos casos, no la incluyas: preferí quedarte corto antes que meter ruido de otras ligas o deportes.
 - Para 3DJuegos: incluí solo notas donde el eje conecte con tecnología, industria, negocio o algo genuinamente curioso (no reseñas de videojuegos comunes ni notas de puro fandom).
 - Para "politica" (no hay portada fija para este tema): con 1-2 búsquedas de web_search alcanza para encontrar varias noticias de medios internacionales serios (agencias, diarios de referencia). Evitá tabloides o fuentes de baja calidad, y evitá seguir buscando variantes de la misma búsqueda.
+- El grupo "aeronautica" cubre espacio + aviación comercial, con estas subcategorías:
+  - "carrera_espacial": misiones, lanzamientos y programas que compitan/avancen la exploración espacial (Artemis, Starship, misiones lunares/marcianas, programas espaciales de distintos países).
+  - "estacion_espacial": ISS, estaciones comerciales (Axiom, Tiangong, etc.), tripulaciones, experimentos a bordo.
+  - "transbordadores": vehículos de lanzamiento y cápsulas tripuladas o de carga (Starship, Dragon, Soyuz, Orion, etc.), pruebas y vuelos.
+  - "adquisiciones_aviacion": fusiones y adquisiciones en aviación comercial (aerolíneas, fabricantes, private equity).
+  - "propulsion": avances en motores/propulsión (combustibles alternativos, propulsión eléctrica o de hidrógeno, motores de cohetes).
+  - "nuevas_aerolineas": lanzamiento de aerolíneas nuevas o entrada a nuevos mercados.
+  - "nuevas_rutas": anuncios de rutas aéreas nuevas que salen de aeropuertos de Estados Unidos.
+  - "ia_aeronautica": uso de inteligencia artificial en aviación o en misiones/operaciones espaciales.
+  Priorizá las portadas de NASA y ESA para carrera_espacial/estacion_espacial/transbordadores; usá las búsquedas dedicadas de aeronáutica solo para las subcategorías más "de industria" (adquisiciones, propulsión, aerolíneas/rutas, IA) que esas portadas no suelen cubrir.
 - Si una fuente de portada no tiene nada relevante a los temas de interés, no inventes nada: simplemente no incluyas noticias de esa fuente en esa corrida.
 - No dupliques la misma noticia si aparece en más de una fuente; quedate con la cobertura más completa y mencioná esa fuente.
 - El campo "url" debe ser la URL de la nota puntual (no la portada) cuando esté disponible; si de verdad no se puede obtener, usá la URL de portada de esa fuente.
@@ -96,6 +108,7 @@ Reglas de clasificación:
 Formato de salida (muy importante):
 - No agregues comentarios, saludos ni explicaciones fuera del JSON.
 - Sé MUY breve entre llamadas a herramientas: no narres cada fetch ni cada búsqueda con texto largo ("voy a revisar...", "ahora busco..."). Si necesitás decir algo, una frase corta alcanza; después andá directo a la siguiente acción. Tu presupuesto de tokens de salida es limitado y tiene que alcanzar para el JSON final con todas las noticias.
+- El JSON tiene que ser válido de verdad: si un título o síntesis incluye una cita textual o un apodo, usá comillas simples ('así') en vez de comillas dobles para evitar romper el JSON, y si usás comillas dobles escapalas siempre como \\". No dejes saltos de línea sueltos sin escapar dentro de un string.
 - No hagas más búsquedas/fetches de los necesarios: priorizá cubrir bien los temas por sobre agotar el máximo de usos disponible de cada herramienta.
 - Antes del JSON podés razonar brevemente y hacer las llamadas a las herramientas, pero el turno debe terminar SIEMPRE con un único bloque de código \`\`\`json que contenga un objeto JSON válido y nada más después de ese bloque.
 - El JSON debe tener exactamente esta forma:
@@ -109,14 +122,14 @@ Formato de salida (muy importante):
       "summary": "string en español, 2-4 líneas",
       "source": "string",
       "url": "string (URL válida)",
-      "group": "tecnologia | economia | politica | deportes",
+      "group": "tecnologia | economia | politica | deportes | aeronautica",
       "subcategory": "ver combinaciones válidas de arriba, según el group"
     }
   ]
 }
 \`\`\`
 
-Apuntá a un total razonable de notas por corrida (aproximadamente entre 15 y 35 en total, según cuánto material relevante haya), priorizando calidad y relevancia por sobre cantidad.`;
+Apuntá a un total razonable de notas por corrida (aproximadamente entre 20 y 45 en total, según cuánto material relevante haya), priorizando calidad y relevancia por sobre cantidad.`;
 }
 
 function buildUserPrompt(nowLabel: string): string {
@@ -134,7 +147,7 @@ ${sourceLines}
 
 Temas de interés (filtrá solo lo que conecte con esto): ${topics}.
 
-Visitá cada fuente con web_fetch una sola vez (7 fetches en total). Usá como máximo 4 búsquedas de web_search en toda la corrida (no restringidas a estos dominios): 1-2 para política internacional y 1-2 para completar deportes. Priorizá contenido de las últimas 24-48 horas y sé eficiente con el presupuesto de tokens.
+Visitá cada fuente con web_fetch una sola vez (9 fetches en total). Usá como máximo 8 búsquedas de web_search en toda la corrida (no restringidas a estos dominios): 1-2 para política internacional, 1-2 para completar deportes, y hasta 4 para completar aeronáutica (adquisiciones, propulsión, aerolíneas/rutas nuevas, IA). Priorizá contenido de las últimas 24-48 horas y sé eficiente con el presupuesto de tokens.
 
 Devolvé el resultado siguiendo exactamente el formato JSON indicado en las instrucciones del sistema.`;
 }
@@ -191,8 +204,8 @@ export async function generateBriefingPayload(
       {
         type: "web_fetch_20250910",
         name: "web_fetch",
-        // Exactamente las URLs configuradas (7), sin margen: el prompt le
-        // pide una sola pasada por fuente.
+        // Exactamente las URLs configuradas, sin margen: el prompt le pide
+        // una sola pasada por fuente.
         max_uses: SOURCES.length,
         allowed_domains: allowedDomains,
         max_content_tokens: 8000,
@@ -200,10 +213,10 @@ export async function generateBriefingPayload(
       {
         type: "web_search_20250305",
         name: "web_search",
-        // Tope técnico alineado al límite de 4 búsquedas del prompt: cada
-        // búsqueda de más consume presupuesto de output que necesitamos
-        // para el JSON final.
-        max_uses: 4,
+        // Tope técnico alineado al límite de 8 búsquedas del prompt (política
+        // + deportes + aeronáutica): cada búsqueda de más consume presupuesto
+        // de output que necesitamos para el JSON final.
+        max_uses: 8,
       },
     ],
   });
@@ -228,10 +241,18 @@ export async function generateBriefingPayload(
   let parsedRaw: unknown;
   try {
     parsedRaw = JSON.parse(jsonString);
-  } catch (err) {
-    throw new Error(
-      `No se pudo parsear el JSON devuelto por Claude: ${(err as Error).message}`,
-    );
+  } catch {
+    // Es común que un LLM deje una comilla sin escapar dentro de un título o
+    // síntesis, lo cual rompe JSON.parse estricto. jsonrepair arregla estos
+    // casos típicos (comillas sueltas, comas colgantes, etc.) antes de
+    // rendirnos.
+    try {
+      parsedRaw = JSON.parse(jsonrepair(jsonString));
+    } catch (err) {
+      throw new Error(
+        `No se pudo parsear el JSON devuelto por Claude (ni siquiera con jsonrepair): ${(err as Error).message}`,
+      );
+    }
   }
 
   const parsed = BriefingPayloadSchema.parse(parsedRaw);

@@ -1,3 +1,4 @@
+import { DateNav } from "@/components/DateNav";
 import { DaySection } from "@/components/DaySection";
 import { Header } from "@/components/Header";
 import { getBriefingHistory } from "@/lib/blob";
@@ -31,23 +32,40 @@ export default async function HomePage() {
     );
   }
 
+  // El contenido se muestra del más reciente al más viejo (arriba de todo lo
+  // último), pero el menú de navegación va de la fecha más vieja a la más
+  // reciente, así que se arma con el orden invertido.
+  const navDays = [...history]
+    .reverse()
+    .map((b) => ({ date: b.date, itemCount: b.items.length }));
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <Header />
 
-      {history.map((briefing, i) => (
-        <DaySection key={briefing.date} briefing={briefing} isLatest={i === 0} />
-      ))}
+      <div className="lg:grid lg:grid-cols-[140px_1fr] lg:gap-12">
+        <DateNav days={navDays} />
 
-      <footer className="mt-4 border-t border-line pt-6 text-xs leading-relaxed text-ink-soft">
-        Curado y sintetizado automáticamente con IA a partir de{" "}
-        {Array.from(new Set(SOURCES.map((s) => s.name))).join(", ")}. Mostrando
-        los últimos{" "}
-        {history.length} día{history.length === 1 ? "" : "s"} disponibles. Este
-        contenido es un resumen editorial generado por un modelo de lenguaje:
-        para el detalle completo, seguí el enlace a la fuente original de cada
-        nota.
-      </footer>
+        <div>
+          {history.map((briefing, i) => (
+            <DaySection
+              key={briefing.date}
+              briefing={briefing}
+              isLatest={i === 0}
+            />
+          ))}
+
+          <footer className="mt-4 border-t border-line pt-6 text-xs leading-relaxed text-ink-soft">
+            Curado y sintetizado automáticamente con IA a partir de{" "}
+            {Array.from(new Set(SOURCES.map((s) => s.name))).join(", ")}.
+            Mostrando los últimos {history.length} día
+            {history.length === 1 ? "" : "s"} disponibles. Este contenido es
+            un resumen editorial generado por un modelo de lenguaje: para el
+            detalle completo, seguí el enlace a la fuente original de cada
+            nota.
+          </footer>
+        </div>
+      </div>
     </main>
   );
 }

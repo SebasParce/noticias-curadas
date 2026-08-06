@@ -19,10 +19,11 @@ export function DaySection({ briefing, isLatest }: DaySectionProps) {
 
   return (
     <section
+      id={`day-${briefing.date}`}
       className={
         isLatest
-          ? "mb-14 sm:mb-20"
-          : "mb-14 border-t border-line pt-12 sm:mb-20 sm:pt-16"
+          ? "scroll-mt-8 mb-14 sm:mb-20"
+          : "scroll-mt-8 mb-14 border-t border-line pt-12 sm:mb-20 sm:pt-16"
       }
     >
       <header className="mb-8 sm:mb-10">

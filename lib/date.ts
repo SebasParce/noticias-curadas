@@ -34,3 +34,22 @@ export function formatDisplayDate(
 
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
+
+/**
+ * Etiqueta corta para el menú de navegación por fecha, ej. "mar. 4 ago".
+ * `dateKey` es un string "YYYY-MM-DD" (el mismo formato que `Briefing.date`).
+ * Se formatea siempre en UTC porque esas tres partes ya representan el día
+ * "correcto" en el huso horario configurado — no hace falta convertir de
+ * nuevo, y evita corrimientos de +/-1 día cerca de la medianoche.
+ */
+export function formatShortDayLabel(dateKey: string): string {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  const formatted = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+
+  return formatted.replace(/\.?,?\s+/g, " ").trim();
+}

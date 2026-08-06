@@ -14,6 +14,8 @@
   --color-politica-soft: #fbeee6;
   --color-deportes: #6b4596;
   --color-deportes-soft: #f1eaf8;
+  --color-aeronautica: #a3760a;
+  --color-aeronautica-soft: #faf1de;
 
   --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",

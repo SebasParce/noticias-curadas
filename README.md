@@ -2,13 +2,16 @@
 
 Dashboard tipo "morning briefing": un cron diario usa Claude (con `web_fetch` +
 `web_search`) para leer TechCrunch, Xataka, Gizmodo en español, 3DJuegos,
-Bloomberg Línea y ESPN; usa `web_search` sin restricción de dominio para
-completar política internacional y deportes (que no tienen portada fija); y
-filtra todo eso a tecnología/startups/AI, economía, política internacional y
-deportes (fútbol de Premier League/LaLiga y baloncesto NBA). Lo sintetiza en
-español y lo clasifica. Cada corrida se guarda como un JSON propio en Vercel
-Blob (uno por día) y la home muestra un scroll con el histórico de los
-últimos días — nada se pisa ni se borra.
+Bloomberg Línea, ESPN, NASA y ESA; usa `web_search` sin restricción de dominio
+para completar política internacional, deportes y aeronáutica (temas sin
+portada fija); y filtra todo eso a tecnología/startups/AI, economía, política
+internacional, deportes (fútbol de Premier League/LaLiga y baloncesto NBA) y
+aeronáutica (carrera espacial, estación espacial, transbordadores,
+adquisiciones, propulsión, aerolíneas y rutas nuevas, IA en aviación). Lo
+sintetiza en español y lo clasifica. Cada corrida se guarda como un JSON
+propio en Vercel Blob (uno por día) y la home muestra un scroll con el
+histórico de los últimos días — con un menú lateral para saltar directo a una
+fecha — y nada se pisa ni se borra.
 
 > **Nota:** BBC, BBC Mundo, IGN, Marca y Diario AS bloquean el crawler de
 > Anthropic (robots.txt) y no pueden estar en la lista de `web_fetch` — ver
@@ -32,6 +35,7 @@ app/
   layout.tsx, globals.css
 components/
   Header.tsx           → masthead del sitio (se muestra 1 sola vez, arriba de todo)
+  DateNav.tsx          → menú de fechas (sticky en desktop, pills en mobile)
   DaySection.tsx       → un día del scroll (fecha + resumen ejecutivo + categorías)
   ExecutiveSummary.tsx, CategorySection.tsx, NewsCard.tsx
 lib/
@@ -58,6 +62,14 @@ vercel.json             → configuración del cron
    en un grupo + subcategoría **propia de ese grupo**:
    - `tecnologia` / `economia` / `politica` → `actualidad` | `notas_curiosas` | `tendencias`
    - `deportes` → `futbol` (solo Premier League/LaLiga) | `baloncesto` (solo NBA)
+   - `aeronautica` → `carrera_espacial` | `estacion_espacial` | `transbordadores` |
+     `adquisiciones_aviacion` | `propulsion` | `nuevas_aerolineas` | `nuevas_rutas` |
+     `ia_aeronautica`
+   La llamada usa `client.messages.stream()` (no `.create()`) porque con un
+   `max_tokens` alto el SDK exige streaming para pedidos que puedan tardar
+   más de 10 minutos. Si el JSON viene con alguna comilla mal escapada (pasa
+   de vez en cuando con LLMs), `jsonrepair` lo arregla antes de tirar la
+   toalla.
 3. Ese JSON se valida con `zod` (incluida la combinación grupo+subcategoría) y
    se guarda con `@vercel/blob` en su propio archivo por fecha:
    `briefing/YYYY-MM-DD.json`. No se pisa el histórico: cada día queda su
@@ -169,17 +181,18 @@ el header coincidan.
 - **Colores y tipografía**: tokens en `app/globals.css` (`@theme`) — está
   usando Newsreader (serif, para títulos) + Inter (sans, para el resto). Cada
   grupo tiene su color (`--color-tecnologia`, `--color-economia`,
-  `--color-politica`, `--color-deportes`).
+  `--color-politica`, `--color-deportes`, `--color-aeronautica`).
 
 ## Costos aproximados (Anthropic)
 
 - `web_search`: **US$10 cada 1.000 búsquedas**, más tokens estándar. Con
-  `max_uses: 14` por corrida, como mucho son 14 búsquedas/día ≈ centavos/mes.
+  `max_uses: 8` por corrida, como mucho son 8 búsquedas/día ≈ centavos/mes.
 - `web_fetch`: **sin costo adicional**, solo tokens estándar del contenido
   traído (con `max_content_tokens: 8000` por fetch para no dispararse).
-- Con 12 fuentes + razonamiento + JSON de salida, una corrida diaria con
-  `claude-sonnet-5` debería costar centavos de dólar por día. Revisá el
-  consumo real en [console.anthropic.com](https://console.anthropic.com).
+- Con 9 fuentes + razonamiento + JSON de salida (`max_tokens: 32000`), una
+  corrida diaria con `claude-sonnet-5` debería costar centavos de dólar por
+  día. Revisá el consumo real en
+  [console.anthropic.com](https://console.anthropic.com).
 
 ## Troubleshooting
 
@@ -194,12 +207,18 @@ el header coincidan.
   los logs para ver la respuesta cruda y ajustá el prompt en
   `lib/anthropic.ts`.
 - **Timeout en el cron (`FUNCTION_INVOCATION_TIMEOUT`)**: `maxDuration` está
-  en 280s (el máximo real es 300s en Hobby/Pro con Fluid Compute). Una
-  corrida completa (6 fuentes + búsquedas + generar 15-35 noticias) puede
-  tardar 1-3 minutos, así que no te preocupes si el `curl` tarda en
+  en 295s (el máximo real es 300s en Hobby/Pro con Fluid Compute). Una
+  corrida completa (9 fuentes + búsquedas + generar 20-45 noticias) puede
+  tardar varios minutos, así que no te preocupes si el `curl` tarda en
   responder. Si igual da timeout, la única forma de subir el límite es bajar
   el trabajo por corrida (menos fuentes, `max_uses` más chico en
   `lib/anthropic.ts`), porque 300s es el techo del plan.
+- **`stop_reason=max_tokens` / "Claude no devolvió texto"**: se quedó sin
+  presupuesto de tokens de salida antes de llegar al JSON final (demasiadas
+  búsquedas/fetches narrados). Ya está bastante acotado con límites numéricos
+  explícitos en el prompt y `MAX_TOKENS=32000`, pero si vuelve a pasar al
+  agregar más fuentes/temas, subí `MAX_TOKENS` o bajá los `max_uses` de las
+  tools en `lib/anthropic.ts`.
 - **`400 ... domains are not accessible to our user agent: [...]`**: alguno
   de los dominios en `lib/sources.ts` bloquea el crawler de Anthropic
   (`robots.txt`). La API rechaza el pedido completo, no solo esa fuente. Sacá

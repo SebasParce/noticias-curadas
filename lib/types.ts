@@ -1,16 +1,33 @@
 // Tipos compartidos del briefing de noticias curadas.
 
-export const GROUP_IDS = ["tecnologia", "economia", "politica", "deportes"] as const;
+export const GROUP_IDS = [
+  "tecnologia",
+  "economia",
+  "politica",
+  "deportes",
+  "aeronautica",
+] as const;
 export type GroupId = (typeof GROUP_IDS)[number];
 
 // Las subcategorías son propias de cada grupo (no todos comparten el mismo
 // set): tecnología/economía/política usan el trío editorial de siempre,
-// deportes usa las dos disciplinas que le interesan a Sebas.
+// deportes usa las dos disciplinas que le interesan a Sebas, y aeronáutica
+// usa 8 subtemas puntuales (espacio + aviación comercial).
 export const SUBCATEGORIES_BY_GROUP = {
   tecnologia: ["actualidad", "notas_curiosas", "tendencias"],
   economia: ["actualidad", "notas_curiosas", "tendencias"],
   politica: ["actualidad", "notas_curiosas", "tendencias"],
   deportes: ["futbol", "baloncesto"],
+  aeronautica: [
+    "carrera_espacial",
+    "estacion_espacial",
+    "transbordadores",
+    "adquisiciones_aviacion",
+    "propulsion",
+    "nuevas_aerolineas",
+    "nuevas_rutas",
+    "ia_aeronautica",
+  ],
 } as const;
 
 export type SubcategoryId =
@@ -55,6 +72,7 @@ export const GROUP_LABELS: Record<GroupId, string> = {
   economia: "Economía",
   politica: "Política internacional",
   deportes: "Deportes",
+  aeronautica: "Aeronáutica",
 };
 
 export const SUBCATEGORY_LABELS: Record<SubcategoryId, string> = {
@@ -63,4 +81,12 @@ export const SUBCATEGORY_LABELS: Record<SubcategoryId, string> = {
   tendencias: "Tendencias",
   futbol: "Fútbol",
   baloncesto: "Baloncesto",
+  carrera_espacial: "Carrera espacial",
+  estacion_espacial: "Estación espacial",
+  transbordadores: "Transbordadores",
+  adquisiciones_aviacion: "Adquisiciones",
+  propulsion: "Propulsión",
+  nuevas_aerolineas: "Nuevas aerolíneas",
+  nuevas_rutas: "Nuevas rutas desde EE.UU.",
+  ia_aeronautica: "IA en aeronáutica",
 };

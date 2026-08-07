@@ -13,11 +13,11 @@ import {
 const MODEL = "claude-sonnet-5";
 // Entre fetches, búsquedas y la narración de cada paso, el modelo puede
 // gastar el presupuesto de output ANTES de llegar al JSON final (se vieron
-// stop_reason=max_tokens con 12000 y con 16000). Subimos bastante más el
-// techo y, sobre todo, acotamos con números concretos cuánto puede explorar
-// (ver system prompt y max_uses de las tools más abajo). Con el grupo
-// "aeronautica" hay más temas a cubrir, así que le damos aún más margen.
-const MAX_TOKENS = 32000;
+// stop_reason=max_tokens con 12000 y con 16000). Con las reglas de brevedad
+// del prompt y los topes de tool-use de abajo, el uso real por corrida quedó
+// bastante por debajo de esto; 20000 deja margen de sobra sin dejar un techo
+// innecesariamente alto (que en el peor caso también sale más caro).
+const MAX_TOKENS = 20000;
 
 const NewsItemSchema = z
   .object({
@@ -72,7 +72,7 @@ function buildSystemPrompt(): string {
 
 Tu trabajo en cada corrida (con límites de uso de herramientas ESTRICTOS, ver más abajo):
 1. Visitar (con la herramienta web_fetch) la portada de cada una de las fuentes indicadas por el usuario, incluidas NASA y ESA. Una sola vez cada una: 9 fetches en total, no repitas ninguna.
-2. Usar web_search (sin restricción de dominio), como MÁXIMO 8 búsquedas en total en toda la corrida, repartidas así: 1-2 para política internacional, 1-2 para completar deportes (fichajes/resultados que no aparecieron en la portada de ESPN), y hasta 4 para completar aeronáutica (1 para adquisiciones en aviación comercial, 1 para avances en propulsión, 1 para nuevas aerolíneas/nuevas rutas desde EE.UU., 1 para IA en aeronáutica). No uses más búsquedas de las necesarias: si con menos ya tenés material suficiente, seguí de largo.
+2. Usar web_search (sin restricción de dominio), como MÁXIMO 5 búsquedas en total en toda la corrida, repartidas así: 1-2 para política internacional, 1 para completar deportes (fichajes/resultados que no aparecieron en la portada de ESPN), y hasta 2 para completar aeronáutica (1 combinando adquisiciones en aviación comercial + avances en propulsión, 1 combinando nuevas aerolíneas/nuevas rutas desde EE.UU. + IA en aeronáutica). No uses más búsquedas de las necesarias: si con menos ya tenés material suficiente, seguí de largo.
 3. Quedarte solo con las noticias relevantes a los temas de interés indicados.
 4. Escribir cada noticia relevante en español (traducila si la fuente está en inglés) como un título corto y una síntesis de 2 a 4 líneas (entre 30 y 70 palabras), con tono informativo y directo, sin clickbait.
 5. Clasificar cada noticia en un grupo y una subcategoría, usando EXCLUSIVAMENTE estas combinaciones válidas (no inventes otras):
@@ -150,7 +150,7 @@ ${sourceLines}
 
 Temas de interés (filtrá solo lo que conecte con esto): ${topics}.
 
-Visitá cada fuente con web_fetch una sola vez (9 fetches en total). Usá como máximo 8 búsquedas de web_search en toda la corrida (no restringidas a estos dominios): 1-2 para política internacional, 1-2 para completar deportes, y hasta 4 para completar aeronáutica (adquisiciones, propulsión, aerolíneas/rutas nuevas, IA). Priorizá contenido de las últimas 24-48 horas y sé eficiente con el presupuesto de tokens.
+Visitá cada fuente con web_fetch una sola vez (9 fetches en total). Usá como máximo 5 búsquedas de web_search en toda la corrida (no restringidas a estos dominios): 1-2 para política internacional, 1 para completar deportes, y hasta 2 para completar aeronáutica (una combinando adquisiciones + propulsión, otra combinando aerolíneas/rutas nuevas + IA). Priorizá contenido de las últimas 24-48 horas y sé eficiente con el presupuesto de tokens.
 
 Devolvé el resultado siguiendo exactamente el formato JSON indicado en las instrucciones del sistema.`;
 }
@@ -201,8 +201,31 @@ export async function generateBriefingPayload(
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: buildSystemPrompt(),
-    messages: [{ role: "user", content: buildUserPrompt(nowLabel) }],
+    // El system prompt y el mensaje inicial del usuario son fijos dentro de
+    // una misma corrida, pero el contexto va creciendo con cada resultado de
+    // web_fetch/web_search y esa parte fija se vuelve a "leer" en cada paso
+    // interno del tool-use loop. Marcarlos con cache_control crea un punto
+    // de caché ahí: los pasos siguientes de la misma corrida reusan ese
+    // prefijo en vez de facturarlo de nuevo a precio completo.
+    system: [
+      {
+        type: "text",
+        text: buildSystemPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: buildUserPrompt(nowLabel),
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+      },
+    ],
     tools: [
       {
         type: "web_fetch_20250910",
@@ -211,15 +234,20 @@ export async function generateBriefingPayload(
         // una sola pasada por fuente.
         max_uses: SOURCES.length,
         allowed_domains: allowedDomains,
-        max_content_tokens: 8000,
+        // Con la portada alcanza para titulares/links relevantes; no hace
+        // falta el artículo completo. Bajado de 8000 para recortar el input
+        // que se arrastra (y relee) durante el resto de la corrida.
+        max_content_tokens: 3500,
       },
       {
         type: "web_search_20250305",
         name: "web_search",
-        // Tope técnico alineado al límite de 8 búsquedas del prompt (política
+        // Tope técnico alineado al límite de 5 búsquedas del prompt (política
         // + deportes + aeronáutica): cada búsqueda de más consume presupuesto
         // de output que necesitamos para el JSON final.
-        max_uses: 8,
+        max_uses: 5,
+        // Cachea también la definición de las tools para esta corrida.
+        cache_control: { type: "ephemeral" },
       },
     ],
   });
